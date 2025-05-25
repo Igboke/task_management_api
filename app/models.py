@@ -34,7 +34,6 @@ class Task(Base):
     updated_at: Mapped[DateTime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, onupdate=lambda: datetime.now(timezone.utc))
     # Define a foreign key relationship to the User model(foreign key column)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
-    # Define a relationship to the User model
-    # This allows you to access the user associated with a task
+    # Define a relationship to the User model. This allows you to access the user associated with a task
     user: Mapped["User"] = relationship("User", back_populates="tasks")
     
