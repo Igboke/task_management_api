@@ -51,6 +51,8 @@ git clone https://github.com/igboke/task_management_api.git
 cd task_management_api
 ```
 
+---
+
 ### 2. Set Up a Virtual Environment
 
 It's crucial to use a virtual environment to manage project dependencies.
@@ -68,6 +70,8 @@ source .venv/bin/activate
 python -m venv .venv
 source .venv/bin/activate
 ```
+
+---
 
 ### 3. Install dependcies
 
@@ -88,6 +92,8 @@ pip install -r requirements.txt
 pip install -e . # Installs your project and its dependencies from pyproject.toml
 ```
 
+---
+
 ### 4. Configure Environment Variables
 
 Create a .env file in the root of your project (task_management_api/.env) and add your MySQL database connection details:
@@ -103,4 +109,147 @@ DB_NAME=task_manager         # Ensure this matches the database name you use
 
 **Make sure your MySQL server is running and the database specified in DB_NAME exists.**
 
+---
+
 ### 5. Run Database Migrations (using Alembic)
+
+#### Generate migration script
+
+```bash
+alembic revision --autogenerate -m "Create user and task tables"
+```
+
+#### Apply migration
+
+```bash
+alembic upgrade head
+```
+
+### 6. Start the FastAPI Application
+
+```bash
+uvicorn app.main:main --reload
+```
+
+The API will now be running locally. The --reload flag will automatically restart the server when you make changes to your code (useful during development).
+
+The API will be accessible at [local](http://127.0.0.1:8000).
+
+### 7. Access API Documentation
+
+[Swagger UI](http://127.0.0.1:8000/docs)
+[ReDoc](http://127.0.0.1:8000/redoc)
+
+### 8. Endpoints
+
+#### Users
+
+* Create User: POST /api/v1/users/
+  -Request Body:
+
+    ```json
+    {
+      "email": "example@email.com",
+      "password": "password",
+    }
+    ```
+
+  -Response:
+
+    ```json
+    {
+      "id": 1,
+      "email": "example@email.com",
+      "is_active": true,
+      "created_at": "2025-05-25T18:49:46.112Z",
+      "updated_at": "2025-05-25T18:49:46.112Z"
+    }
+    ```
+
+* Get User by ID: GET /api/v1/users/{user_id}
+    -Response:
+
+    ```json
+        {
+        "email": "user@example.com",
+        "id": 0,
+        "is_active": true,
+        "created_at": "2025-05-25T18:58:43.352Z",
+        "updated_at": "2025-05-25T18:58:43.353Z"
+        }
+    ```
+
+* Get All Users: GET /api/v1/users/
+    -Response:
+
+    ```json
+        [
+        {
+        "email": "user@example.com",
+        "id": 0,
+        "is_active": true,
+        "created_at": "2025-05-25T19:00:55.294Z",
+        "updated_at": "2025-05-25T19:00:55.294Z"
+        },
+        ]
+    ```
+
+* Update User: PUT /api/v1/users/{user_id}
+    -Request Body:
+
+    ```json
+    {
+    "email": "user@example.com",
+    "password": "stringst",
+    "is_active": true
+    }
+    ```
+
+    -Response:
+
+    ```json
+    {
+    "email": "user@example.com",
+    "id": 0,
+    "is_active": true,
+    "created_at": "2025-05-25T19:04:58.122Z",
+    "updated_at": "2025-05-25T19:04:58.122Z"
+    }
+    ```
+
+* Delete User: DELETE /api/v1/users/{user_id}
+    -Response: 204 No Content
+
+#### Tasks
+
+* Create Task: POST /api/v1/tasks/{user_id}/create/
+    -Request Body:
+
+    ```json
+        {
+        "title": "string",
+        "description": "string",
+        "status": "pending",
+        "due_date": "2025-05-25T18:49:42.371Z"
+        }
+    ```
+
+    -Response:
+
+    ```json
+        {
+        "title": "string",
+        "description": "string",
+        "status": "pending",
+        "due_date": "2025-05-25T19:08:42.805Z",
+        "id": 0,
+        "created_at": "2025-05-25T19:08:42.805Z",
+        "updated_at": "2025-05-25T19:08:42.805Z",
+        "user_id": 0
+        }
+    ```
+
+*(Planned) Get Task by ID: GET /api/v1/tasks/{task_id}
+*(Planned) Get User Tasks: GET /api/v1/users/{user_id}/tasks/
+*(Planned) Update Task: PUT /api/v1/tasks/{task_id}
+*(Planned) Delete Task: DELETE /api/v1/tasks/{task_id}
