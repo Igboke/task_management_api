@@ -6,7 +6,7 @@ from sqlalchemy import Enum as SQLEnum
 import enum
 
 # Define an enumeration for task status
-class TaskStatus(enum.Enum):
+class TaskStatus(str,enum.Enum):
     PENDING = "pending"
     IN_PROGRESS = "in progress"
     COMPLETED = "completed"
