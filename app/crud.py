@@ -102,7 +102,19 @@ async def delete_user(db: AsyncSession, user_id: int) -> Optional[DBUser]:
 
 # Task CRUD Operations
 async def create_task(db: AsyncSession, task_create: schemas.TaskCreate, user_id: int) -> DBTask:
-    pass
+    """
+    Create a new task in the database.
+    This function takes a Pydantic model for task creation and saves the task to the database.
+    - :param db: The database session to use for the operation.
+    - :param task_create: The Pydantic model containing task creation data.
+    - :param user_id: The ID of the user to whom the task belongs.
+    - :return: The created task as a SQLAlchemy model instance.
+    """
+    new_task = DBTask(**task_create.model_dump(), user_id=user_id)
+    db.add(new_task)
+    await db.commit()
+    await db.refresh(new_task)
+    return new_task
 
 async def get_task(db: AsyncSession, task_id: int) -> Optional[DBTask]:
     pass
