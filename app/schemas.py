@@ -4,7 +4,7 @@ from datetime import datetime
 import enum 
 
 # Define an enumeration for task status
-class TaskStatus(enum.Enum):
+class TaskStatus(str,enum.Enum):
     PENDING = "pending"
     IN_PROGRESS = "in progress"
     COMPLETED = "completed"
@@ -107,7 +107,7 @@ class TaskResponse(TaskBase):
     """
     Schema for returning a task (response model) Schema for returning a task (response model) This MUST match the fields in your app.models.Task that you want to expose
     This schema is used to serialize task data for API responses.
-    - TaskBase: inherits all fields from TaskBase
+    **TaskBase <inherits all fields from TaskBase>**:
     - id: unique identifier of the task
     - created_at: timestamp when the task was created
     - updated_at: timestamp when the task was last updated
