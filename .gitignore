@@ -17,3 +17,8 @@ wheels/
 
 #sql
 *.sql
+
+#python
+*.pyc
+__pycache__/
+
