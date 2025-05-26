@@ -47,6 +47,27 @@ async def read_task_endpoint(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
     return task
 
+@router.get("/{user_id}/tasks/", response_model=list[schemas.TaskResponse], status_code=status.HTTP_200_OK)
+async def read_user_tasks_endpoint(
+    user_id: int,
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieve tasks for a specific user with pagination.
+    - :param user_id: The ID of the user whose tasks to retrieve.
+    - :param skip: The number of records to skip (for pagination).
+    - :param limit: The maximum number of records to return.
+    - :param db: The database session to use for the operation.
+    - :return: A list of tasks as SQLAlchemy model instances, serialized to TaskResponse schema.
+    """
+    saved_user = await crud.get_user(db, user_id)
+    if not saved_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    tasks = await crud.get_user_tasks(db, user_id, skip, limit)
+    return tasks
+
 @router.put("{user_id}/{task_id}/update/", response_model=schemas.TaskResponse, status_code=status.HTTP_200_OK)
 async def update_task_endpoint(
     user_id:int,
