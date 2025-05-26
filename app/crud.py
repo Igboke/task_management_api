@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, asc, desc
 from typing import List, Optional
 from utils import hash_password, verify_password
 import asyncio
@@ -148,27 +148,53 @@ async def get_task(db: AsyncSession, task_id: int) -> Optional[DBTask]:
     task = result.scalar_one_or_none()
     return task
 
-async def get_user_tasks(db: AsyncSession, user_id: int, skip: int = 0, limit: int = 100) -> List[DBTask]:
+async def get_user_tasks(
+    db: AsyncSession,
+    user_id: int,
+    status_filter: Optional[schemas.TaskStatus] = None,
+    sort_by: Optional[str] = None,
+    order: Optional[str] = "asc",
+    skip: int = 0,
+    limit: int = 100
+) -> List[DBTask]:
     """
-    Retrieve tasks for a specific user with pagination.
-    - :param db: The database session to use for the operation.
-    - :param user_id: The ID of the user whose tasks to retrieve.
-    - :param skip: The number of records to skip (for pagination).
-    - :param limit: The maximum number of records to return.
-    - :return: A list of tasks as SQLAlchemy model instances.
+    Retrieves a list of tasks for a specific user with pagination, filtering, and sorting.
+    - db: Datebase session
+    - user_id: id of the user
+    - status_filter: (in progress, pending, completed)
+    - sort_by:  key terms 'created_at', 'due_date', 'title'
+    - order: asc- ascending, desc- descending, default is ascending
+    - skip:
+    - limit:
     """
-    result = await db.execute(
-        select(DBTask).where(DBTask.user_id == user_id).offset(skip).limit(limit)
-    )
+    query = select(DBTask).where(DBTask.user_id == user_id)
+
+    if status_filter:
+        query = query.where(DBTask.status == status_filter)
+
+    if sort_by:
+        # Define allowed sortable fields to prevent SQL injection
+        allowed_sort_fields = ['id', 'title', 'created_at', 'updated_at', 'due_date', 'status']
+        if sort_by not in allowed_sort_fields:
+            sort_by = None # Ignore invalid sort_by
+        else:
+            # Apply sorting
+            if order and order.lower() == "desc":
+                query = query.order_by(desc(getattr(DBTask, sort_by)))
+            else: # Default to ascending
+                query = query.order_by(asc(getattr(DBTask, sort_by)))
+
+    query = query.offset(skip).limit(limit)
+    
+    result = await db.execute(query)
     return result.scalars().all()
 
-async def update_task(db: AsyncSession,user_id:int, task_id: int, task_update: schemas.TaskUpdate) -> None | DBTask | str:
+async def update_task(db: AsyncSession, task_id: int, task_update: schemas.TaskUpdate) -> None | DBTask | str:
     """
     Update an existing task in the database.
     This function takes a Pydantic model for task updates, retrieves the task by ID,
     and applies the updates to the task model.
     - :param db: The database session to use for the operation.
-    - :user_id: The ID of the User.
     - :param task_id: The ID of the task to update.
     - :param task_update: The Pydantic model containing task update data.
     - :return: The updated task as a SQLAlchemy model instance, or None if not found.
@@ -176,8 +202,6 @@ async def update_task(db: AsyncSession,user_id:int, task_id: int, task_update: s
     db_task = await get_task(db, task_id)
     if not db_task:
         return None
-    if not db_task.user_id == user_id:
-        return "restricted"
     # Update fields from the Pydantic schema that were actually set
     update_data = task_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -186,20 +210,17 @@ async def update_task(db: AsyncSession,user_id:int, task_id: int, task_update: s
     await db.refresh(db_task)
     return db_task
     
-async def delete_task(db: AsyncSession,user_id:int, task_id: int) -> Optional[str]:
+async def delete_task(db: AsyncSession, task_id: int) -> Optional[DBTask]:
     """
     Delete a task from the database by its ID.
     - :param db: The database session to use for the operation.
     - :param task_id: The ID of the task to delete.
-    - :param user_id: The ID of the user to whom the task belongs (for validation).
     - :return: The deleted task as a SQLAlchemy model instance, or None if not found.
     """
     db_task = await get_task(db, task_id)
     if not db_task:
         return None
-    if db_task.user_id != user_id:
-        return "restricted"
     # If the task exists, delete it
     await db.delete(db_task)
     await db.commit()
-    return "deleted_task"
+    return db_task
