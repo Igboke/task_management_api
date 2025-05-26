@@ -1,13 +1,14 @@
 from fastapi import APIRouter,Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
+from typing import Optional
 from app import crud, schemas
 from app.database import get_db
 from app.models import Task as DBTask  
 
 router = APIRouter()
 
-@router.post("/{user_id}/create/", response_model=schemas.TaskResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/{user_id}/", response_model=schemas.TaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task_endpoint(
     user_id: int,
     task_data: schemas.TaskCreate,
@@ -47,16 +48,22 @@ async def read_task_endpoint(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
     return task
 
-@router.get("/{user_id}/tasks/", response_model=list[schemas.TaskResponse], status_code=status.HTTP_200_OK)
+@router.get("/user/{user_id}/", response_model=list[schemas.TaskResponse], status_code=status.HTTP_200_OK)
 async def read_user_tasks_endpoint(
     user_id: int,
+    status_: Optional[schemas.TaskStatus] = None,
+    sort_by: Optional[str] = None,              
+    order: Optional[str] = "asc",               
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Retrieve tasks for a specific user with pagination.
+    Retrieve tasks for a specific user with pagination, filtering, and sorting.
     - :param user_id: The ID of the user whose tasks to retrieve.
+    - :param status: Optional filter for task status (PENDING, IN_PROGRESS, COMPLETED).
+    - :param sort_by: Optional field to sort tasks by (e.g., 'created_at', 'due_date', 'title').
+    - :param order: Optional sort order ('asc' for ascending, 'desc' for descending). Default is 'asc'.
     - :param skip: The number of records to skip (for pagination).
     - :param limit: The maximum number of records to return.
     - :param db: The database session to use for the operation.
@@ -65,10 +72,19 @@ async def read_user_tasks_endpoint(
     saved_user = await crud.get_user(db, user_id)
     if not saved_user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    tasks = await crud.get_user_tasks(db, user_id, skip, limit)
+    tasks = await crud.get_user_tasks(
+        db, 
+        user_id, 
+        status_filter=status_,
+        sort_by=sort_by, 
+        order=order, 
+        skip=skip, 
+        limit=limit
+    )
     return tasks
 
-@router.put("{user_id}/{task_id}/update/", response_model=schemas.TaskResponse, status_code=status.HTTP_200_OK)
+
+@router.put("{user_id}/{task_id}/", response_model=schemas.TaskResponse, status_code=status.HTTP_200_OK)
 async def update_task_endpoint(
     user_id:int,
     task_id: int,
@@ -84,11 +100,14 @@ async def update_task_endpoint(
     - :return: The updated task as a SQLAlchemy model instance, serialized to TaskResponse schema.
     """
     try:
-        updated_task = await crud.update_task(db,user_id,task_id, task_update)
-        if updated_task == "restricted":
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="User not authorized to update Task")
-        elif not updated_task:
+        db_task = await crud.get_task(db,task_id)
+        if not db_task:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+        if not db_task.user_id == user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="User not authorized to update Task")
+
+        updated_task = await crud.update_task(db,task_id, task_update)
+
         return updated_task
     except IntegrityError as e:
         raise HTTPException(
@@ -96,27 +115,27 @@ async def update_task_endpoint(
             detail=f"Could not update task due to a database integrity constraint violation:{e}\n. Check input data."
         )
     
-@router.delete("/{user_id}/{task_id}/delete/", status_code=status.HTTP_200_OK)
+@router.delete("/{user_id}/{task_id}/delete/", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_task_endpoint(
     user_id: int,
     task_id: int,
     db: AsyncSession = Depends(get_db)
-)->dict[str, str]:
+)->None:
     """
     Delete a task by ID.
     - :param user_id: The ID of the user to whom the task belongs (for validation).
     - :param task_id: The ID of the task to delete.
     - :param db: The database session to use for the operation.
     """
-    result = await crud.delete_task(db,user_id, task_id)
-    if not result:
+    db_task = await crud.get_task(db, task_id)
+    if not db_task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
-    elif result == "restricted":
+    if db_task.user_id != user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authorized to delete Task")
-    return {"message": "Task deleted successfully"}
+    await crud.delete_task(db, task_id)    
+    return None
     
     
     
 
 #how can i send prompts when a task reaches the due date
-#sorting tasks according the task.status
