@@ -2,6 +2,7 @@
 from fastapi import FastAPI
 from app.database import Base, engine
 from app.api.v1.api import api_router
+from app.auth.router import router as auth_router
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -15,6 +16,7 @@ app = FastAPI(
 
 # Include the API router with a prefix for versioning
 app.include_router(api_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 
 # health check endpoint
 @app.get("/")
