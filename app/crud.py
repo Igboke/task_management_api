@@ -162,12 +162,13 @@ async def get_user_tasks(db: AsyncSession, user_id: int, skip: int = 0, limit: i
     )
     return result.scalars().all()
 
-async def update_task(db: AsyncSession, task_id: int, task_update: schemas.TaskUpdate) -> Optional[DBTask]:
+async def update_task(db: AsyncSession,user_id:int, task_id: int, task_update: schemas.TaskUpdate) -> None | DBTask | str:
     """
     Update an existing task in the database.
     This function takes a Pydantic model for task updates, retrieves the task by ID,
     and applies the updates to the task model.
     - :param db: The database session to use for the operation.
+    - :user_id: The ID of the User.
     - :param task_id: The ID of the task to update.
     - :param task_update: The Pydantic model containing task update data.
     - :return: The updated task as a SQLAlchemy model instance, or None if not found.
@@ -175,6 +176,8 @@ async def update_task(db: AsyncSession, task_id: int, task_update: schemas.TaskU
     db_task = await get_task(db, task_id)
     if not db_task:
         return None
+    if not db_task.user_id == user_id:
+        return "restricted"
     # Update fields from the Pydantic schema that were actually set
     update_data = task_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
