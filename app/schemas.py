@@ -120,3 +120,19 @@ class TaskResponse(TaskBase):
 
     class Config:
         from_attributes = True
+
+#JWT Token Schemas
+class Token(BaseModel):
+    """
+    Schema for the response model when a user successfully logs in.
+    Contains the generated access token and its type.
+    """
+    access_token: str = Field(..., description="The JWT access token")
+    token_type: str = Field("bearer", description="The type of token, typically 'bearer'")
+
+class TokenData(BaseModel):
+    """
+    Schema for the data payload expected within the JWT itself.
+    The 'sub' (subject) claim typically holds a unique identifier for the user.
+    """
+    email: Optional[EmailStr] = Field(None, description="The email address (subject) extracted from the token")
