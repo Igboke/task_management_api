@@ -95,3 +95,28 @@ async def update_task_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Could not update task due to a database integrity constraint violation:{e}\n. Check input data."
         )
+    
+@router.delete("/{user_id}/{task_id}/delete/", status_code=status.HTTP_200_OK)
+async def delete_task_endpoint(
+    user_id: int,
+    task_id: int,
+    db: AsyncSession = Depends(get_db)
+)->dict[str, str]:
+    """
+    Delete a task by ID.
+    - :param user_id: The ID of the user to whom the task belongs (for validation).
+    - :param task_id: The ID of the task to delete.
+    - :param db: The database session to use for the operation.
+    """
+    result = await crud.delete_task(db,user_id, task_id)
+    if not result:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+    elif result == "restricted":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authorized to delete Task")
+    return {"message": "Task deleted successfully"}
+    
+    
+    
+
+#how can i send prompts when a task reaches the due date
+#sorting tasks according the task.status
