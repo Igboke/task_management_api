@@ -1,11 +1,25 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
+import utils
 from app import crud, schemas
 from app.database import get_db
 from app.models import User as DBUser # Alias SQLAlchemy User to avoid confusion
 
 router = APIRouter()
+
+@router.post("/login", status_code=status.HTTP_200_OK)
+async def user_login(user_data:schemas.UserCreate,
+                     db: AsyncSession=Depends(get_db)) -> dict[str,str]:
+    #check if email exists
+    existing_user = await crud.get_user_by_email(db=db,email=user_data.email)
+    if not existing_user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Invalid credentials")
+    #compare and verify password
+    valiation_request = await crud.authorize_user(user_data,existing_user)
+    if not valiation_request:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Invalid credentials")
+    return {"Message":"Welcome"}
 
 @router.post("/", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user_endpoint(
