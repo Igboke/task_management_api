@@ -2,30 +2,32 @@ from fastapi import APIRouter,Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from typing import Optional
+from app.core.security import get_current_user
 from app import crud, schemas
 from app.database import get_db
-from app.models import Task as DBTask  
+from app.models import Task as DBTask , User as DBUser 
 
 router = APIRouter()
 
 @router.post("/{user_id}/", response_model=schemas.TaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task_endpoint(
-    user_id: int,
     task_data: schemas.TaskCreate,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user) # PROTECTED: Requires a valid JWT
 ):
     """
     Create a new task.
     - :param task_data: The Pydantic model containing task creation data.
     - :param db: The database session to use for the operation.
+    - :param current_user: The authenticated user object (injected by dependency).
     - :return: The created task as a SQLAlchemy model instance, serialized to TaskResponse schema.
     """
     try:
         # Check if the user exists
-        existing_user = await crud.get_user(db, user_id)
+        existing_user = await crud.get_user(db,  current_user.id)
         if not existing_user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-        task = await crud.create_task(db, task_data, user_id)
+        task = await crud.create_task(db, task_data, current_user.id)
         return task
     except IntegrityError as e:
         raise HTTPException(
@@ -35,17 +37,21 @@ async def create_task_endpoint(
 @router.get("/{task_id}", response_model=schemas.TaskResponse, status_code=status.HTTP_200_OK)
 async def read_task_endpoint(
     task_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user) # PROTECTED: Requires a valid JWT
 ):
     """
     Retrieve a task by ID.
     - :param task_id: The ID of the task to retrieve.
     - :param db: The database session to use for the operation.
+    - :param current_user: The authenticated user object (injected by dependency).
     - :return: The task as a SQLAlchemy model instance, serialized to TaskResponse schema.
     """
     task = await crud.get_task(db, task_id)
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+    if task.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this task")
     return task
 
 @router.get("/user/{user_id}/", response_model=list[schemas.TaskResponse], status_code=status.HTTP_200_OK)
