@@ -186,16 +186,20 @@ async def update_task(db: AsyncSession,user_id:int, task_id: int, task_update: s
     await db.refresh(db_task)
     return db_task
     
-async def delete_task(db: AsyncSession, task_id: int) -> Optional[DBTask]:
+async def delete_task(db: AsyncSession,user_id:int, task_id: int) -> Optional[str]:
     """
     Delete a task from the database by its ID.
     - :param db: The database session to use for the operation.
     - :param task_id: The ID of the task to delete.
+    - :param user_id: The ID of the user to whom the task belongs (for validation).
     - :return: The deleted task as a SQLAlchemy model instance, or None if not found.
     """
     db_task = await get_task(db, task_id)
     if not db_task:
         return None
+    if db_task.user_id != user_id:
+        return "restricted"
+    # If the task exists, delete it
     await db.delete(db_task)
     await db.commit()
-    return db_task
+    return "deleted_task"
