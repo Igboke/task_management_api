@@ -46,3 +46,31 @@ async def read_task_endpoint(
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
     return task
+
+@router.put("{user_id}/{task_id}/update/", response_model=schemas.TaskResponse, status_code=status.HTTP_200_OK)
+async def update_task_endpoint(
+    user_id:int,
+    task_id: int,
+    task_update: schemas.TaskUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update an existing task.
+    - :param user_id: The ID of the user to whom the task belongs (for validation).
+    - :param task_id: The ID of the task to update.
+    - :param task_update: The Pydantic model containing task update data.
+    - :param db: The database session to use for the operation.
+    - :return: The updated task as a SQLAlchemy model instance, serialized to TaskResponse schema.
+    """
+    try:
+        updated_task = await crud.update_task(db,user_id,task_id, task_update)
+        if updated_task == "restricted":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="User not authorized to update Task")
+        elif not updated_task:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+        return updated_task
+    except IntegrityError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Could not update task due to a database integrity constraint violation:{e}\n. Check input data."
+        )
