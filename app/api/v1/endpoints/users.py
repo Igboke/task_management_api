@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
-import utils
+from app.core.security import get_current_user
 from app import crud, schemas
 from app.database import get_db
-from app.models import User as DBUser # Alias SQLAlchemy User to avoid confusion
+from app.models import User as DBUser
 
 router = APIRouter()
 
@@ -43,20 +43,35 @@ async def create_user_endpoint(
     user = await crud.create_user(db, user_data)
     return user 
 
+@router.get("/me", response_model=schemas.UserResponse)
+async def read_current_user_endpoint(
+    current_user: DBUser = Depends(get_current_user) # PROTECTED: Requires a valid JWT
+):
+    """
+    Retrieves the details of the currently authenticated user.
+    - :param current_user: The authenticated user object (injected by `get_current_user` dependency).
+    - :return: The current user's details.
+    """
+    return current_user
+
 @router.get("/{user_id}", response_model=schemas.UserResponse)
-async def read_user_endpoint(
+async def read_user_by_id_endpoint(
     user_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user) # PROTECTED: Requires a valid JWT
 ):
     """
     Retrieve a user by ID.
     - :param user_id: The ID of the user to retrieve.
     - :param db: The database session to use for the operation.
+    - :param current_user: The authenticated user (injected by dependency).
     - :return: The user as a SQLAlchemy model instance, serialized to UserResponse schema.
     """
     user = await crud.get_user(db, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view this user's profile")
     return user
 
 @router.get("/", response_model=list[schemas.UserResponse])
@@ -79,15 +94,20 @@ async def read_users_endpoint(
 async def update_user_endpoint(
     user_id: int,
     user_update: schemas.UserUpdate,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user) # PROTECTED: Requires a valid JWT
 ):
     """
     Update an existing user.
     - :param user_id: The ID of the user to update.
     - :param user_update: The Pydantic model containing user update data.
     - :param db: The database session to use for the operation.
+    - :param current_user: The authenticated user (injected by dependency).
+
     - :return: The updated user as a SQLAlchemy model instance, serialized to UserResponse schema.
     """
+    if user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this user")
     try:
         updated_user = await crud.update_user(db, user_id, user_update)
         if not updated_user:
@@ -102,14 +122,18 @@ async def update_user_endpoint(
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user_endpoint(
     user_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user) # PROTECTED: Requires a valid JWT
 ):
     """
     Delete a user.
     - :param user_id: The ID of the user to delete.
     - :param db: The database session to use for the operation.
+    - :param current_user: The authenticated user (injected by dependency).
     - :return: None (204 No Content response).
     """
+    if user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this user")
     deleted_user = await crud.delete_user(db, user_id)
     if not deleted_user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
