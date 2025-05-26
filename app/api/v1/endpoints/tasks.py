@@ -31,3 +31,18 @@ async def create_task_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Could not create task due to a database integrity constraint violation:{e}\n. Check input data."
         )
+@router.get("/{task_id}", response_model=schemas.TaskResponse, status_code=status.HTTP_200_OK)
+async def read_task_endpoint(
+    task_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieve a task by ID.
+    - :param task_id: The ID of the task to retrieve.
+    - :param db: The database session to use for the operation.
+    - :return: The task as a SQLAlchemy model instance, serialized to TaskResponse schema.
+    """
+    task = await crud.get_task(db, task_id)
+    if not task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+    return task
