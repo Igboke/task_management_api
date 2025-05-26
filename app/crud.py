@@ -1,7 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
 from typing import List, Optional
-from utils import hash_password
+from utils import hash_password, verify_password
+import asyncio
 from app.models import User as DBUser, Task as DBTask # Alias models to avoid confusion with Pydantic schemas named similarly
 from app import schemas
 
@@ -99,6 +100,26 @@ async def delete_user(db: AsyncSession, user_id: int) -> Optional[DBUser]:
     await db.delete(db_user)
     await db.commit()
     return db_user
+
+async def authorize_user(user_data:schemas.UserCreate,validated_mail_user:DBUser) -> bool:
+    """
+    Authorizes a user by verifying their plain password against the stored hashed password.
+    This function runs the synchronous password verification in a separate thread
+    to prevent blocking the main event loop.
+
+    - :param user_data: The Pydantic model (schemas.UserCreate) containing the plain text password from the request.
+    - :param validated_mail_user: The SQLAlchemy model instance (DBUser) retrieved from the database,
+                                  containing the hashed password.
+    - :return: True if the passwords match, False otherwise.
+    """
+
+    #compare passwords
+    is_password_correct = await asyncio.to_thread(
+        verify_password,
+        user_data.password, # Direct access to plain password from Pydantic model
+        validated_mail_user.password # Hashed password from DBUser model
+    )
+    return is_password_correct
 
 # Task CRUD Operations
 async def create_task(db: AsyncSession, task_create: schemas.TaskCreate, user_id: int) -> DBTask:
