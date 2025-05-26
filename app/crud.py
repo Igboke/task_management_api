@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete
+from sqlalchemy import select
 from typing import List, Optional
 from utils import hash_password, verify_password
 import asyncio
@@ -138,13 +138,61 @@ async def create_task(db: AsyncSession, task_create: schemas.TaskCreate, user_id
     return new_task
 
 async def get_task(db: AsyncSession, task_id: int) -> Optional[DBTask]:
-    pass
+    """
+    Retrieve a task by its ID.
+    - :param db: The database session to use for the operation.
+    - :param task_id: The ID of the task to retrieve.
+    - :return: The task as a SQLAlchemy model instance, or None if not found.
+    """
+    result = await db.execute(select(DBTask).where(DBTask.id == task_id))
+    task = result.scalar_one_or_none()
+    return task
 
 async def get_user_tasks(db: AsyncSession, user_id: int, skip: int = 0, limit: int = 100) -> List[DBTask]:
-    pass
+    """
+    Retrieve tasks for a specific user with pagination.
+    - :param db: The database session to use for the operation.
+    - :param user_id: The ID of the user whose tasks to retrieve.
+    - :param skip: The number of records to skip (for pagination).
+    - :param limit: The maximum number of records to return.
+    - :return: A list of tasks as SQLAlchemy model instances.
+    """
+    result = await db.execute(
+        select(DBTask).where(DBTask.user_id == user_id).offset(skip).limit(limit)
+    )
+    return result.scalars().all()
 
 async def update_task(db: AsyncSession, task_id: int, task_update: schemas.TaskUpdate) -> Optional[DBTask]:
-    pass
-
+    """
+    Update an existing task in the database.
+    This function takes a Pydantic model for task updates, retrieves the task by ID,
+    and applies the updates to the task model.
+    - :param db: The database session to use for the operation.
+    - :param task_id: The ID of the task to update.
+    - :param task_update: The Pydantic model containing task update data.
+    - :return: The updated task as a SQLAlchemy model instance, or None if not found.
+    """
+    db_task = await get_task(db, task_id)
+    if not db_task:
+        return None
+    # Update fields from the Pydantic schema that were actually set
+    update_data = task_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_task, key, value)
+    await db.commit()
+    await db.refresh(db_task)
+    return db_task
+    
 async def delete_task(db: AsyncSession, task_id: int) -> Optional[DBTask]:
-    pass
+    """
+    Delete a task from the database by its ID.
+    - :param db: The database session to use for the operation.
+    - :param task_id: The ID of the task to delete.
+    - :return: The deleted task as a SQLAlchemy model instance, or None if not found.
+    """
+    db_task = await get_task(db, task_id)
+    if not db_task:
+        return None
+    await db.delete(db_task)
+    await db.commit()
+    return db_task
