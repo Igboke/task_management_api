@@ -147,6 +147,22 @@ async def get_user_by_verification_token(db: AsyncSession, token: str) -> Option
     user = result.scalar_one_or_none()
     return user
 
+async def mark_user_as_verified(db: AsyncSession, user: DBUser) -> DBUser:
+    """
+    Marks a user's email as verified and clears the verification token.
+    This function updates the user's verification status in the database.
+    - :param db: The database session to use for the operation.
+    - :param user: The user model instance to update.
+    - :return: The updated user as a SQLAlchemy model instance.
+    """
+    user.is_verified = True
+    user.verification_token = None
+    user.verification_token_expires_at = None
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
 # Task CRUD Operations
 async def create_task(db: AsyncSession, task_create: schemas.TaskCreate, user_id: int) -> DBTask:
     """
