@@ -54,6 +54,7 @@ class UserResponse(UserBase):
     """
     id: int = Field(..., description="The unique identifier of the user")
     is_active: bool = Field(True, description="Whether the user account is active")
+    is_verified: bool = Field(False, description="Whether the user's email address has been verified")
     created_at: datetime = Field(..., description="The timestamp when the user was created")
     updated_at: datetime = Field(..., description="The timestamp when the user was last updated")
 
