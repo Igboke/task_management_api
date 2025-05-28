@@ -1,9 +1,10 @@
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, asc, desc
 from typing import List, Optional
 from utils import hash_password, verify_password
 import asyncio
-from app.models import User as DBUser, Task as DBTask # Alias models to avoid confusion with Pydantic schemas named similarly
+from app.models import User as DBUser, Task as DBTask
 from app import schemas
 
 
@@ -18,8 +19,12 @@ async def create_user(db: AsyncSession, user_create: schemas.UserCreate) -> DBUs
     """
     user_create.password = hash_password(user_create.password)
     
-    # Instantiate the SQLAlchemy model using the Pydantic model's data
-    new_user = DBUser(**user_create.model_dump()) # model_dump() gives a dict compatible with DBUser
+    
+    new_user = DBUser(**user_create.model_dump(exclude_unset=True))
+    new_user.is_verified = False # Explicitly ensure new users are not verified
+    new_user.verification_token = None # Ensure no token initially
+    new_user.verification_token_expires_at = None # Ensure no expiry initially
+
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user) # Refresh to get auto-generated ID, timestamps etc.
@@ -120,6 +125,27 @@ async def authorize_user(user_data:schemas.UserCreate,validated_mail_user:DBUser
         validated_mail_user.password # Hashed password from DBUser model
     )
     return is_password_correct
+
+async def get_user_by_verification_token(db: AsyncSession, token: str) -> Optional[DBUser]:
+    """
+    Retrieves a user by their unique verification token.
+    This function checks if the token matches a user in the database and ensures that the token
+    has not expired and the user is not already verified.
+    - :param db: The database session to use for the operation.
+    - :param token: The verification token to search for.
+    - :return: The user as a SQLAlchemy model instance if found, or None if not found or expired.
+    """
+    now = datetime.now(timezone.utc)
+    # Check for matching token and ensuring it's not expired
+    result = await db.execute(
+        select(DBUser).where(
+            DBUser.verification_token == token,
+            DBUser.is_verified == False, # Only consider unverified users
+            DBUser.verification_token_expires_at > now # Ensure token is not expired
+        )
+    )
+    user = result.scalar_one_or_none()
+    return user
 
 # Task CRUD Operations
 async def create_task(db: AsyncSession, task_create: schemas.TaskCreate, user_id: int) -> DBTask:
