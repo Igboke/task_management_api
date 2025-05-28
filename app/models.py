@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy import String, Integer,Boolean, DateTime, ForeignKey
 from datetime import datetime, timezone
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -19,6 +20,9 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean,default=True)
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    verification_token: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True, default=None)
+    verification_token_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
     created_at: Mapped[DateTime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[DateTime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, onupdate=lambda: datetime.now(timezone.utc))
     tasks: Mapped[list["Task"]] = relationship("Task", back_populates="user")
