@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
-from app.core.security import get_current_user
+from app.core.security import get_current_user, create_email_verification_access_token
 from app import crud, schemas
 from app.database import get_db
 from app.models import User as DBUser
+from utils import send_verification_mail
 
 router = APIRouter()
 
@@ -24,24 +25,52 @@ async def user_login(user_data:schemas.UserCreate,
 @router.post("/", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user_endpoint(
     user_data: schemas.UserCreate,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    request: Request = Depends() 
 ):
     """
     This endpoint allows the creation of a new user in the system.
     It checks if a user with the provided email already exists, and if not, it creates a new user with the provided details.
-    - :param user_create: The Pydantic model containing user creation data.
+    - :param user_data: The Pydantic model containing user creation data.
     - :param db: The database session to use for the operation.
     - :return: The created user as a SQLAlchemy model instance, serialized to UserResponse schema.\n
-    **FastAPI will automatically convert the DBUser object to schemas.UserResponse and from_attributes = True (in the Pydantic schema helps fast API to read the attributes from the SQLAlchemy model**
+    **FastAPI automatically converts the SQLAlchemy model instance (`DBUser`) into the `UserResponse` Pydantic schema.\nThe `from_attributes = True` in `UserResponse.Config` allows Pydantic to read attributes directly from the SQLAlchemy model object.**
+
     """
     existing_user = await crud.get_user_by_email(db, user_data.email)
     if existing_user:
+        if not existing_user.is_verified:
+            # Resend verification email if user exists but isn't verified to be fixed
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User with this email already exists but is not verified. Please check your inbox for a verification link.")
+            
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User with this email already exists"
         )
     user = await crud.create_user(db, user_data)
-    return user 
+
+    verification_token = await create_email_verification_access_token(user.email)
+    if not verification_token:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create verification token"
+        )
+    
+    #construct the verification link
+    # scheme = request.url.scheme  # 'http' or 'https'
+    # netloc = request.url.netloc  # e.g., 'example.com'
+    verification_url = f"{request.url.scheme}://{request.url.netloc}/api/v1/verify-email?token={verification_token}"
+
+    await send_verification_mail(user,verification_url)
+    
+    # Return the created user as a Pydantic model
+    # FastAPI will automatically convert the SQLAlchemy model instance to the Pydantic schema
+    # using the `from_attributes=True` in the UserResponse schema's Config
+    # This allows Pydantic to read attributes directly from the SQLAlchemy model object. 
+    return schemas.UserResponse.model_validate(user, from_attributes=True, context={"detail": "User created successfully. Please check your email for a verification link."})
+
 
 @router.get("/me", response_model=schemas.UserResponse)
 async def read_current_user_endpoint(
