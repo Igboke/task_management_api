@@ -51,7 +51,7 @@ async def create_user_endpoint(
         )
     user = await crud.create_user(db, user_data)
 
-    verification_token = await create_email_verification_access_token(user.email)
+    verification_token = await create_email_verification_access_token(user)
     if not verification_token:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
