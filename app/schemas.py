@@ -49,6 +49,7 @@ class UserResponse(UserBase):
     - UserBase: inherits email field which is required
     - id: unique identifier of the user
     - is_active: boolean indicating if the user account is active
+    - is_verified: boolean indicating if the user's email address has been verified
     - created_at: timestamp when the user was created
     - updated_at: timestamp when the user was last updated
     """
