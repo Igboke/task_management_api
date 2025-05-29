@@ -28,17 +28,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     return pwd_context.verify(plain_password, hashed_password)
 
-async def send_verification_mail(db:AsyncSession,user:DbUser,verification_token:str) -> None:
+async def send_verification_mail(user:DbUser,verification_url:str) -> None:
     """
     Sends a verification email to the user with a verification link.
     The link includes a token that is valid for a limited time.
     """
     try:
-        # Generate a verification token
-        token = verification_token
-
-        # Construct the verification link
-        verification_url = f"{settings.BASE_URL}/api/v1/verify-email?token={token}"
 
         # Create the email message
         msg = EmailMessage()
