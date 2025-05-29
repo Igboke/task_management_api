@@ -75,7 +75,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
     """
     return await verify_access_token(token, db)
 
-async def create_verification_access_token(user: DBUser) -> str:
+async def create_email_verification_access_token(user: DBUser) -> str:
     """
     Creates a verification token for the user.
     This token can be used to verify the user's email address.
@@ -92,7 +92,7 @@ async def create_verification_access_token(user: DBUser) -> str:
     encoded_jwt = jwt.encode(data, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
-async def verify_verification_token(token: str) -> Optional[str]:
+async def verify_email_verification_token(token: str) -> Optional[str]:
     """
     Verifies a verification token.
     This function decodes the token and checks if it is valid.
