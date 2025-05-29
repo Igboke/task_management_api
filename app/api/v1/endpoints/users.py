@@ -24,9 +24,9 @@ async def user_login(user_data:schemas.UserCreate,
 
 @router.post("/", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user_endpoint(
+    request: Request,
     user_data: schemas.UserCreate,
-    db: AsyncSession = Depends(get_db),
-    request: Request = Depends() 
+    db: AsyncSession = Depends(get_db), 
 ):
     """
     This endpoint allows the creation of a new user in the system.
