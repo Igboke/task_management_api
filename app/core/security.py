@@ -14,7 +14,7 @@ from app.schemas import TokenData # Pydantic schema for token payload validation
 
 # OAuth2PasswordBearer is a FastAPI utility that helps implement OAuth2 password flow.
 # It expects the access token in the "Authorization" header as "Bearer <token>".
-# The `tokenUrl` tells FastAPI where to find the endpoint that issues tokens (our login endpoint).
+# The `tokenUrl` tells FastAPI where to find the endpoint that issues tokens (our login endpoint). Documentation purposes
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -74,3 +74,20 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
     It automatically extracts the token, verifies it, and returns the DBUser object.
     """
     return await verify_access_token(token, db)
+
+async def create_verification_access_token(user: DBUser) -> str:
+    """
+    Creates a verification token for the user.
+    This token can be used to verify the user's email address.
+    the payload typically includes the user's email and expiration timestamp.
+    """
+    data = {"sub": user.email, "type": 'email verification'}
+
+    # Set the expiration time for the verification token
+    # The token will expire after a specified number of hours defined in settings
+    expires_delta = datetime.now(timezone.utc) + timedelta(hours=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS)
+    # Update the payload with the expiration time
+    data.update({"exp": expires_delta})
+    # Encode the payload into a JWT token using the secret key and algorithm
+    encoded_jwt = jwt.encode(data, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return encoded_jwt
