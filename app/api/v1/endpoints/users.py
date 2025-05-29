@@ -61,10 +61,12 @@ async def create_user_endpoint(
     #construct the verification link
     # scheme = request.url.scheme  # 'http' or 'https'
     # netloc = request.url.netloc  # e.g., 'example.com'
-    verification_url = f"{request.url.scheme}://{request.url.netloc}/api/v1/verify-email?token={verification_token}"
+    # verification_url = f"{scheme}://{netloc}/api/v1/verify-email?token={verification_token}"
+    #request.base_url/api/v1/verify-email?token={verification_token} also works
+    verification_url = f"{request.url.scheme}://{request.url.netloc}/api/v1/verify_email?token={verification_token}"
 
     await send_verification_mail(user,verification_url)
-    
+
     # Return the created user as a Pydantic model
     # FastAPI will automatically convert the SQLAlchemy model instance to the Pydantic schema
     # using the `from_attributes=True` in the UserResponse schema's Config
