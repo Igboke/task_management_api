@@ -91,3 +91,28 @@ async def create_verification_access_token(user: DBUser) -> str:
     # Encode the payload into a JWT token using the secret key and algorithm
     encoded_jwt = jwt.encode(data, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
+
+async def verify_verification_token(token: str) -> Optional[str]:
+    """
+    Verifies a verification token.
+    This function decodes the token and checks if it is valid.
+    If valid, it returns the user's email; otherwise, it returns None.
+    """
+    try:
+        # Decode the token using the secret key and algorithm
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+
+        # Extract the user's email from the token payload
+        email: str = payload.get("sub")
+
+        #extract token type
+        token_type: str = payload.get("type")
+
+        # If email is None or token type is not 'email verification', return None
+        if email is None or token_type != 'email verification':
+            return None
+        
+        # If everything is valid, return the user's email
+        return email
+    except JWTError:
+        return None
