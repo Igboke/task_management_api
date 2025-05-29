@@ -6,8 +6,8 @@ class Settings(BaseSettings):
     """
     # JWT Settings
     SECRET_KEY: str = "PlaceholderSecretKey"
-    ALGORITHM: str = "HS256" # HMAC SHA256 algorithm for signing JWTs
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30 # Access token validity period in minutes
+    ALGORITHM: str = "HS256" 
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30 
 
     EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = 24 
     BASE_URL: str = "http://127.0.0.1:8000" 
