@@ -22,13 +22,30 @@ async def create_user(db: AsyncSession, user_create: schemas.UserCreate) -> DBUs
     
     new_user = DBUser(**user_create.model_dump(exclude_unset=True))
     new_user.is_verified = False # Explicitly ensure new users are not verified
-    new_user.verification_token = None # Ensure no token initially
-    new_user.verification_token_expires_at = None # Ensure no expiry initially
 
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user) # Refresh to get auto-generated ID, timestamps etc.
     return new_user
+
+async def verify_user_email(db: AsyncSession, email: str) -> Optional[DBUser]:
+    """
+    Updates a user's is_verified status to True.
+    - :param db: The database session.
+    - :param email: The email of the user to verify.
+    - :return: The updated user, or None if not found.
+    """
+    user = await get_user_by_email(db, email)
+    if not user:
+        return None
+    
+    if user.is_verified: # Already verified
+        return user
+
+    user.is_verified = True
+    await db.commit()
+    await db.refresh(user)
+    return user
 
 async def get_user_by_email(db: AsyncSession, email: str) -> Optional[DBUser]:
     """
