@@ -62,7 +62,7 @@ async def verify_email_endpoint(
     """
     Verifies a user's email address using a JWT.
     """
-    email = verify_email_verification_token(token)
+    email = await verify_email_verification_token(token)
 
     if email is None:
         raise HTTPException(
