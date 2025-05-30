@@ -63,7 +63,7 @@ async def create_user_endpoint(
     # netloc = request.url.netloc  # e.g., 'example.com'
     # verification_url = f"{scheme}://{netloc}/api/v1/verify-email?token={verification_token}"
     #request.base_url/api/v1/verify-email?token={verification_token} also works
-    verification_url = f"{request.url.scheme}://{request.url.netloc}/api/v1/verify_email?token={verification_token}"
+    verification_url = f"{request.url.scheme}://{request.url.netloc}/api/v1/auth/verify_email/{verification_token}"
 
     await send_verification_mail(user,verification_url)
 
