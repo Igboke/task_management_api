@@ -5,7 +5,7 @@ from typing import Optional
 from app.core.security import get_current_user
 from app import crud, schemas
 from app.database import get_db
-from app.models import Task as DBTask , User as DBUser 
+from app.models import User as DBUser 
 
 router = APIRouter()
 
