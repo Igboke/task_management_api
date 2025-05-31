@@ -220,3 +220,29 @@ async def test_read_user_by_id_unauthorized(client: AsyncClient, authenticated_u
     response = await client.get(f"/api/v1/users/{second_db_user.id}", headers=headers)
     assert response.status_code == 403
     assert response.json()["detail"] == "Not authorized to view this user's profile"
+
+@pytest.mark.anyio
+async def test_read_all_users(client: AsyncClient, db, authenticated_user_and_headers, mocker):
+    """
+    Test retrieving a list of all users.
+    API allows any authenticated user to list all users.
+    """
+    mocker.patch("utils.send_verification_mail", return_value=None)
+    #header with bearer token contains the creation of the first user
+    _, headers = authenticated_user_and_headers
+
+    # Create a second user
+    second_user_data = UserCreate(email="second@example.com", password="SecondPassword")
+    second_db_user = await crud.create_user(db, second_user_data)
+    second_db_user.is_verified = True
+    await db.commit()
+    await db.refresh(second_db_user)
+
+    response = await client.get("/api/v1/users/", headers=headers)
+    assert response.status_code == 200
+    users = response.json()
+    assert len(users) == 2
+
+    emails = {u["email"] for u in users}
+    assert "authenticated@example.com" in emails
+    assert "second@example.com" in emails
