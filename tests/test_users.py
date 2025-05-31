@@ -78,3 +78,38 @@ async def test_login_success(client: AsyncClient, db, mocker):
     assert "access_token" in token_response
     assert token_response["token_type"] == "bearer"
 
+@pytest.mark.anyio
+async def test_login_invalid_credentials(client: AsyncClient, db, mocker):
+    """
+    Test user login with incorrect email or password.
+    """
+    mocker.patch("utils.send_verification_mail", return_value=None)
+
+    # Setup: Create a verified user for later tests of wrong password on existing user
+    plain_password_correct = "CorrectPassword123" # Store plain password
+    user_data = UserCreate(email="existing_login@example.com", password=plain_password_correct)
+    db_user = await crud.create_user(db, user_data)
+    db_user.is_verified = True
+    await db.commit()
+    await db.refresh(db_user)
+
+    # Test 1: Non-existent email
+    login_form_data_nonexistent = {
+        "username": "nonexistent@example.com",
+        "password": "wrongpassword",
+    }
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    response = await client.post("/api/v1/auth/token", data=login_form_data_nonexistent, headers=headers)
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Incorrect email or password"
+
+    # Test 2: Existing email, but wrong password
+    login_form_data_wrong_pass = {
+        "username": user_data.email, # Use the existing user's email
+        "password": "wrongpassword", # Intentionally wrong password
+    }
+    response = await client.post("/api/v1/auth/token", data=login_form_data_wrong_pass, headers=headers)
+    assert response.status_code == 418
+
