@@ -113,3 +113,25 @@ async def test_login_invalid_credentials(client: AsyncClient, db, mocker):
     response = await client.post("/api/v1/auth/token", data=login_form_data_wrong_pass, headers=headers)
     assert response.status_code == 418
 
+@pytest.mark.anyio
+async def test_login_unverified_email(client: AsyncClient, db, mocker):
+    """
+    Test user login with an unverified email.
+    """
+    mocker.patch("utils.send_verification_mail", return_value=None)
+
+    # Create a user but do NOT verify them
+    unverified_password:str = "unverifiedpassword"
+    user_data = UserCreate(email="unverified@example.com", password=unverified_password)
+    await crud.create_user(db, user_data) # This user will remain unverified
+
+    login_form_data = {
+        "username": user_data.email,
+        "password": unverified_password,
+    }
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    response = await client.post("/api/v1/auth/token", data=login_form_data, headers=headers)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Email not verified. Please check your inbox for a verification link."
