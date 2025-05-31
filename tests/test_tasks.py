@@ -241,3 +241,27 @@ async def test_update_task_forbidden(client: AsyncClient, authenticated_user_and
     response = await client.put(f"/api/v1/tasks/{other_task.id}", json=update_data, headers=headers_owner)
     assert response.status_code == 403
     assert response.json()["detail"] == "Not authorized to update this task"
+
+@pytest.mark.anyio
+async def test_delete_task_success(client: AsyncClient, authenticated_user_and_headers):
+    """
+    Test successful deletion of a task owned by the authenticated user.
+    """
+    _, headers = authenticated_user_and_headers
+    create_task_data = {
+        "title": "Task to Delete",
+        "description": "Will be gone soon",
+        "status": "pending",
+        "due_date": datetime.now(timezone.utc).isoformat(),
+    }
+    create_response = await client.post("/api/v1/tasks/", json=create_task_data, headers=headers)
+    assert create_response.status_code == 201
+    task_id = create_response.json()["id"]
+
+    delete_response = await client.delete(f"/api/v1/tasks/{task_id}", headers=headers)
+    assert delete_response.status_code == 204 # No Content
+
+    # Verify task is deleted by trying to retrieve it
+    get_response = await client.get(f"/api/v1/tasks/{task_id}", headers=headers)
+    assert get_response.status_code == 404
+    assert get_response.json()["detail"] == "Task not found"
