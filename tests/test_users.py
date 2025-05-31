@@ -246,3 +246,13 @@ async def test_read_all_users(client: AsyncClient, db, authenticated_user_and_he
     emails = {u["email"] for u in users}
     assert "authenticated@example.com" in emails
     assert "second@example.com" in emails
+
+    #no authentication headers are required for this endpoint
+    response = await client.get("/api/v1/users/")
+    assert response.status_code == 200
+    users = response.json()
+    assert len(users) == 2
+
+    emails = {u["email"] for u in users}
+    assert "authenticated@example.com" in emails
+    assert "second@example.com" in emails
