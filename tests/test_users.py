@@ -256,3 +256,21 @@ async def test_read_all_users(client: AsyncClient, db, authenticated_user_and_he
     emails = {u["email"] for u in users}
     assert "authenticated@example.com" in emails
     assert "second@example.com" in emails
+
+@pytest.mark.anyio
+async def test_update_user_success(client: AsyncClient, authenticated_user_and_headers):
+    """
+    Test successful update of the authenticated user's profile.
+    """
+    user, headers = authenticated_user_and_headers
+    update_data = {
+        "email": "updated@example.com",
+        "is_active": False,
+    }
+    response = await client.put(f"/api/v1/users/{user.id}", json=update_data, headers=headers)
+
+    assert response.status_code == 200
+    updated_user_data = response.json()
+    assert updated_user_data["email"] == update_data["email"]
+    assert updated_user_data["is_active"] == update_data["is_active"]
+    assert updated_user_data["id"] == user.id
