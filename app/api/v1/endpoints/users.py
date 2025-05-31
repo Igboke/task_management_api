@@ -5,7 +5,7 @@ from app.core.security import get_current_user, create_email_verification_access
 from app import crud, schemas
 from app.database import get_db
 from app.models import User as DBUser
-from utils import send_verification_mail
+import utils
 
 router = APIRouter()
 
@@ -65,13 +65,13 @@ async def create_user_endpoint(
     #request.base_url/api/v1/verify-email?token={verification_token} also works
     verification_url = f"{request.url.scheme}://{request.url.netloc}/api/v1/auth/verify_email/{verification_token}"
 
-    await send_verification_mail(user,verification_url)
+    await utils.send_verification_mail(user,verification_url)
 
     # Return the created user as a Pydantic model
     # FastAPI will automatically convert the SQLAlchemy model instance to the Pydantic schema
     # using the `from_attributes=True` in the UserResponse schema's Config
     # This allows Pydantic to read attributes directly from the SQLAlchemy model object. 
-    return schemas.UserResponse.model_validate(user, from_attributes=True, context={"detail": "User created successfully. Please check your email for a verification link."})
+    return schemas.UserResponse.model_validate(user, from_attributes=True)
 
 
 @router.get("/me", response_model=schemas.UserResponse)
