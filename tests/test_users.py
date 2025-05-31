@@ -164,3 +164,12 @@ async def test_verify_email_success(client: AsyncClient, db, mocker):
     #Verify user status in the database
     updated_user = await get_user_by_email(db, created_user["email"])
     assert updated_user.is_verified is True
+
+@pytest.mark.anyio
+async def test_verify_email_invalid_token(client: AsyncClient):
+    """
+    Test email verification with an invalid token.
+    """
+    response = await client.get("/api/v1/auth/verify_email/invalidtoken")
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid or expired verification link."
