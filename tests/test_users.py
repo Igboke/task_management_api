@@ -3,6 +3,8 @@ import pytest
 from app.schemas import UserCreate, UserUpdate
 import app.crud as crud
 import utils
+from app.core.security import create_email_verification_access_token
+from app.crud import get_user_by_email
 
 @pytest.mark.anyio
 async def test_create_user(client: AsyncClient, mocker):
@@ -135,3 +137,30 @@ async def test_login_unverified_email(client: AsyncClient, db, mocker):
     response = await client.post("/api/v1/auth/token", data=login_form_data, headers=headers)
     assert response.status_code == 403
     assert response.json()["detail"] == "Email not verified. Please check your inbox for a verification link."
+
+@pytest.mark.anyio
+async def test_verify_email_success(client: AsyncClient, db, mocker):
+    """
+    Test email verification endpoint with a valid token.
+    """
+    mocker.patch("utils.send_verification_mail", return_value=None)
+
+    #Create a user (will be unverified)
+    user_data = {"email": "verify@example.com", "password": "VerificationPassword123"}
+    response = await client.post("/api/v1/users/", json=user_data)
+    assert response.status_code == 201
+    created_user = response.json()
+    
+    #Directly generate a valid verification token for the created user In a real scenario, this token would come from the email sent by the /users/ endpoint.
+    
+    db_user = await get_user_by_email(db, created_user["email"])
+    verification_token = await create_email_verification_access_token(db_user)
+
+    #Call the verification endpoint with the token
+    response = await client.get(f"/api/v1/auth/verify_email/{verification_token}")
+    assert response.status_code == 200
+    assert response.json()["message"] == "Email verified successfully! You can now log in."
+
+    #Verify user status in the database
+    updated_user = await get_user_by_email(db, created_user["email"])
+    assert updated_user.is_verified is True
