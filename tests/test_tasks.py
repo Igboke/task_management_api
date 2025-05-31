@@ -3,7 +3,9 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from app.schemas import TaskCreate, TaskStatus, TaskUpdate
 from app.models import Task as DBTask
-from app.crud import get_task as crud_get_task
+from app.crud import get_task as crud_get_task, create_task as crud_create_task
+from app.schemas import UserCreate
+from app.crud import create_user as crud_create_user
 
 @pytest.mark.anyio
 async def test_create_task(client: AsyncClient, authenticated_user_and_headers):
@@ -74,3 +76,32 @@ async def test_read_task_by_id_not_found(client: AsyncClient, authenticated_user
     response = await client.get("/api/v1/tasks/99999", headers=headers) # Non-existent ID
     assert response.status_code == 404
     assert response.json()["detail"] == "Task not found"
+
+@pytest.mark.anyio
+async def test_read_task_by_id_forbidden(client: AsyncClient, authenticated_user_and_headers, db):
+    """
+    Test attempting to retrieve another user's task.
+    """
+    _, headers_owner = authenticated_user_and_headers
+
+    # Create a second user
+    other_user_data = UserCreate(email="other@example.com", password="OtherUserPass")
+    other_db_user = await crud_create_user(db, other_user_data)
+    other_db_user.is_verified = True
+    await db.commit()
+    await db.refresh(other_db_user)
+
+    # Create a task for the other user
+    task_for_other_user_data = {
+        "title": "Other user's private task",
+        "description": "Don't touch!",
+        "status": "pending",
+        "due_date": (datetime.now(timezone.utc) + timedelta(days=5)).isoformat(),
+    }
+    # Simulate other user creating a task by directly calling crud
+    other_task = await crud_create_task(db, TaskCreate(**task_for_other_user_data), other_db_user.id)
+
+    # Now, the user with token tries to access 'other_task'
+    response = await client.get(f"/api/v1/tasks/{other_task.id}", headers=headers_owner)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Not authorized to access this task"
