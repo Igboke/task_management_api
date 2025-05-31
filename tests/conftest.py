@@ -1,6 +1,6 @@
 import asyncio
 import pytest
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
@@ -14,13 +14,6 @@ from app.crud import create_user as crud_create_user, get_user_by_email, mark_us
 # Using `sqlite+aiosqlite:///:memory:` means the database exists only in RAM
 # and is reset for each test session, providing a clean slate.
 SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
-
-async def override_get_db():
-    """
-    Override the default get_db dependency to use an in-memory SQLite database for testing.
-    This function provides an AsyncSession that can be used in tests.
-    """
-    yield db
 
 # This fixture is required by pytest-asyncio to enable running async tests
 @pytest.fixture(scope="session")
@@ -80,9 +73,16 @@ async def client(db: AsyncSession):
     to use the test database session. This allows tests to interact with
     the FastAPI application using the test database.
     """
+    async def override_get_db():
+        """
+        Override the default get_db dependency to use an in-memory SQLite database for testing.
+        This function provides an AsyncSession that can be used in tests.
+        """
+        yield db
     # Override the get_db dependency to use the test session provided by the `db` fixture
     app.dependency_overrides[get_db] = override_get_db
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    transport = ASGITransport(app=app, raise_app_exceptions=True)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     # Clean up the dependency override after the test finishes
     app.dependency_overrides.clear()
