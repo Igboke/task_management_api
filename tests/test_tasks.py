@@ -64,3 +64,13 @@ async def test_read_task_by_id_success(client: AsyncClient, authenticated_user_a
     assert read_task["id"] == created_task_id
     assert read_task["title"] == task_data["title"]
     assert read_task["user_id"] == user.id
+
+@pytest.mark.anyio
+async def test_read_task_by_id_not_found(client: AsyncClient, authenticated_user_and_headers):
+    """
+    Test retrieving a non-existent task.
+    """
+    _, headers = authenticated_user_and_headers
+    response = await client.get("/api/v1/tasks/99999", headers=headers) # Non-existent ID
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Task not found"
