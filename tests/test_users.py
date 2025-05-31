@@ -1,6 +1,7 @@
 from httpx import AsyncClient
 import pytest
 from app.schemas import UserCreate, UserUpdate
+import app.crud as crud
 import utils
 
 @pytest.mark.anyio
@@ -47,3 +48,32 @@ async def test_create_user_email_already_exists(client: AsyncClient, mocker):
     response = await client.post("/api/v1/users/", json=user_data)
     assert response.status_code == 400
     assert response.json()["detail"] == "User with this email already exists but is not verified. Please check your inbox for a verification link."
+
+@pytest.mark.anyio
+async def test_login_success(client: AsyncClient, db, mocker):
+    """
+    Test successful user login and token generation.
+    """
+    mocker.patch("utils.send_verification_mail", return_value=None)
+
+    # First, create a user and manually verify them in DB for login test
+    user_data = UserCreate(email="login@example.com", password="loginpassword")
+    db_user = await crud.create_user(db, user_data)
+    db_user.is_verified = True # Manually verify for login test
+    db.add(db_user)
+    await db.commit()
+    await db.refresh(db_user)
+
+    login_form_data = {
+        "username": user_data.email, # OAuth2PasswordRequestForm expects 'username'
+        "password": user_data.password,
+    }
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    response = await client.post("/api/v1/auth/token", data=login_form_data,headers=headers)
+
+    assert response.status_code == 200
+    token_response = response.json()
+    assert "access_token" in token_response
+    assert token_response["token_type"] == "bearer"
