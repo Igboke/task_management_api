@@ -173,3 +173,17 @@ async def test_verify_email_invalid_token(client: AsyncClient):
     response = await client.get("/api/v1/auth/verify_email/invalidtoken")
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid or expired verification link."
+
+@pytest.mark.anyio
+async def test_read_current_user(client: AsyncClient, authenticated_user_and_headers):
+    """
+    Test retrieving the currently authenticated user's profile.
+    """
+    user, headers = authenticated_user_and_headers
+    response = await client.get("/api/v1/users/me", headers=headers)
+
+    assert response.status_code == 200
+    current_user_data = response.json()
+    assert current_user_data["email"] == user.email
+    assert current_user_data["id"] == user.id
+    assert current_user_data["is_verified"] is True
