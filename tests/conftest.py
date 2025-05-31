@@ -8,7 +8,7 @@ from app.main import app
 from app.database import Base, get_db
 from app.schemas import UserCreate
 from app.core.security import create_access_token
-from app.crud import create_user as crud_create_user, get_user_by_email, mark_user_as_verified
+from app.crud import create_user as crud_create_user
 
 # Define a test database URL using SQLite in-memory for speed and isolation
 # Using `sqlite+aiosqlite:///:memory:` means the database exists only in RAM
