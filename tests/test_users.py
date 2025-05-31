@@ -57,16 +57,16 @@ async def test_login_success(client: AsyncClient, db, mocker):
     mocker.patch("utils.send_verification_mail", return_value=None)
 
     # First, create a user and manually verify them in DB for login test
-    user_data = UserCreate(email="login@example.com", password="loginpassword")
+    password="loginpassword"
+    user_data = UserCreate(email="login@example.com", password=password)
     db_user = await crud.create_user(db, user_data)
     db_user.is_verified = True # Manually verify for login test
-    db.add(db_user)
     await db.commit()
     await db.refresh(db_user)
 
     login_form_data = {
         "username": user_data.email, # OAuth2PasswordRequestForm expects 'username'
-        "password": user_data.password,
+        "password": password,
     }
     headers = {
         "Content-Type": "application/x-www-form-urlencoded"
@@ -77,3 +77,4 @@ async def test_login_success(client: AsyncClient, db, mocker):
     token_response = response.json()
     assert "access_token" in token_response
     assert token_response["token_type"] == "bearer"
+
