@@ -1,8 +1,7 @@
 from httpx import AsyncClient
 import pytest
-from app.schemas import UserCreate, UserUpdate
+from app.schemas import UserCreate
 import app.crud as crud
-import utils
 from app.core.security import create_email_verification_access_token
 from app.crud import get_user_by_email
 
@@ -295,4 +294,47 @@ async def test_update_user_unauthorized(client: AsyncClient, authenticated_user_
     assert response.status_code == 403
     assert response.json()["detail"] == "Not authorized to update this user"
 
+@pytest.mark.anyio
+async def test_delete_user_success(client: AsyncClient, authenticated_user_and_headers,db):
+    """
+    Test successful deletion of the authenticated user's profile.
+    """
+    user, headers = authenticated_user_and_headers
+    response = await client.delete(f"/api/v1/users/{user.id}", headers=headers)
+    assert response.status_code == 204 # 204 No Content
 
+    response = await client.get("/api/v1/users/me", headers=headers)
+
+    assert response.status_code == 401 # Should be unauthorized as user is deleted
+    assert response.json()["detail"] == "Could not validate credentials"
+    # Verify the user is no longer in the database
+    deleted_user = await get_user_by_email(db,user.email)
+    assert deleted_user is None
+    
+    #verify that the user cannot log in anymore:
+    login_form_data = {
+        "username": user.email,
+        "password": "SecurePassword123", # Use the original password
+    }
+    login_headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    login_response = await client.post("/api/v1/auth/token", data=login_form_data, headers=login_headers)
+    assert login_response.status_code == 401 # Should be unauthorized as user is deleted
+
+@pytest.mark.anyio
+async def test_delete_user_unauthorized(client: AsyncClient, authenticated_user_and_headers, db, mocker):
+    """
+    Test attempting to delete another user's profile.
+    """
+    mocker.patch("utils.send_verification_mail", return_value=None)
+    _, headers = authenticated_user_and_headers
+
+    # Create a second user
+    second_user_data = UserCreate(email="another_to_delete@example.com", password="DeleteUserPassword")
+    second_db_user = await crud.create_user(db, second_user_data)
+    second_db_user.is_verified = True
+    await db.commit()
+    await db.refresh(second_db_user)
+
+    response = await client.delete(f"/api/v1/users/{second_db_user.id}", headers=headers)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Not authorized to delete this user"
