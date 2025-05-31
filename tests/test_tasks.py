@@ -168,3 +168,35 @@ async def test_read_user_tasks_with_sorting(client: AsyncClient, authenticated_u
     # Task B should be first due to 'desc' order and later creation
     assert tasks[0]["title"] == "Task B"
     assert tasks[1]["title"] == "Task A"
+
+@pytest.mark.anyio
+async def test_update_task_success(client: AsyncClient, authenticated_user_and_headers):
+    """
+    Test updating an existing task owned by the authenticated user.
+    This test checks if a user can successfully update a task with valid data.
+    It verifies that the task is updated with the new attributes and returns a 200 status code.
+    """
+    _, headers = authenticated_user_and_headers
+    create_task_data = {
+        "title": "Task to Update",
+        "description": "Initial description",
+        "status": "pending",
+        "due_date": datetime.now(timezone.utc).isoformat(),
+    }
+    create_response = await client.post("/api/v1/tasks/", json=create_task_data, headers=headers)
+    assert create_response.status_code == 201
+    task_id = create_response.json()["id"]
+
+    update_task_data = {
+        "title": "Updated Task Title",
+        "description": "New description",
+        "status": "completed",
+    }
+    update_response = await client.put(f"/api/v1/tasks/{task_id}", json=update_task_data, headers=headers)
+    assert update_response.status_code == 200
+    updated_task = update_response.json()
+    assert updated_task["id"] == task_id
+    assert updated_task["title"] == update_task_data["title"]
+    assert updated_task["description"] == update_task_data["description"]
+    assert updated_task["status"] == update_task_data["status"]
+    assert updated_task["updated_at"] > updated_task["created_at"] # Updated timestamp should be newer
