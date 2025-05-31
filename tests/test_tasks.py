@@ -1,7 +1,7 @@
 from httpx import AsyncClient
 import pytest
 from datetime import datetime, timezone, timedelta
-from app.schemas import TaskCreate, TaskStatus, TaskUpdate
+from app.schemas import TaskCreate, TaskStatus
 from app.models import Task as DBTask
 from app.crud import get_task as crud_get_task, create_task as crud_create_task
 from app.schemas import UserCreate
@@ -105,3 +105,25 @@ async def test_read_task_by_id_forbidden(client: AsyncClient, authenticated_user
     response = await client.get(f"/api/v1/tasks/{other_task.id}", headers=headers_owner)
     assert response.status_code == 403
     assert response.json()["detail"] == "Not authorized to access this task"
+
+@pytest.mark.anyio
+async def test_read_user_tasks_no_filter(client: AsyncClient, authenticated_user_and_headers):
+    """
+    Test retrieving all tasks for the authenticated user without filters.
+    """
+    user, headers = authenticated_user_and_headers
+    # Create multiple tasks for the user
+    for i in range(3):
+        task_data = {
+            "title": f"Task {i}",
+            "description": f"Description for task {i}",
+            "status": "pending" if i % 2 == 0 else "completed",
+            "due_date": (datetime.now(timezone.utc) + timedelta(days=i)).isoformat(),
+        }
+        await client.post("/api/v1/tasks/", json=task_data, headers=headers)
+
+    response = await client.get("/api/v1/tasks/", headers=headers)
+    assert response.status_code == 200
+    tasks = response.json()
+    assert len(tasks) == 3
+    assert all(task["user_id"] == user.id for task in tasks)
