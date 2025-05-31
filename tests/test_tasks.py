@@ -41,3 +41,26 @@ async def test_create_task_unauthenticated(client: AsyncClient):
     }
     response = await client.post("/api/v1/tasks/", json=task_data)
     assert response.status_code == 401 # Unauthorized
+
+@pytest.mark.anyio
+async def test_read_task_by_id_success(client: AsyncClient, authenticated_user_and_headers):
+    """
+    Test retrieving a task by ID for the owner.
+    """
+    user, headers = authenticated_user_and_headers
+    task_data = {
+        "title": "My specific task",
+        "description": "Details for my task",
+        "status": "in progress",
+        "due_date": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+    }
+    create_response = await client.post("/api/v1/tasks/", json=task_data, headers=headers)
+    assert create_response.status_code == 201
+    created_task_id = create_response.json()["id"]
+
+    read_response = await client.get(f"/api/v1/tasks/{created_task_id}", headers=headers)
+    assert read_response.status_code == 200
+    read_task = read_response.json()
+    assert read_task["id"] == created_task_id
+    assert read_task["title"] == task_data["title"]
+    assert read_task["user_id"] == user.id
