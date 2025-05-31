@@ -187,3 +187,36 @@ async def test_read_current_user(client: AsyncClient, authenticated_user_and_hea
     assert current_user_data["email"] == user.email
     assert current_user_data["id"] == user.id
     assert current_user_data["is_verified"] is True
+
+@pytest.mark.anyio
+async def test_read_user_by_id_self(client: AsyncClient, authenticated_user_and_headers):
+    """
+    Test retrieving a user's profile by ID for the authenticated user themselves.
+    """
+    user, headers = authenticated_user_and_headers
+    response = await client.get(f"/api/v1/users/{user.id}", headers=headers)
+
+    assert response.status_code == 200
+    retrieved_user_data = response.json()
+    assert retrieved_user_data["email"] == user.email
+    assert retrieved_user_data["id"] == user.id
+
+@pytest.mark.anyio
+async def test_read_user_by_id_unauthorized(client: AsyncClient, authenticated_user_and_headers, db, mocker):
+    """
+    Test attempting to retrieve another user's profile by ID.
+    """
+    mocker.patch("utils.send_verification_mail", return_value=None)
+    #header with bearer token
+    _, headers = authenticated_user_and_headers
+
+    # Create a second user
+    second_user_data = UserCreate(email="another@example.com", password="AnotherPassword")
+    second_db_user = await crud.create_user(db, second_user_data)
+    second_db_user.is_verified = True
+    await db.commit()
+    await db.refresh(second_db_user)
+
+    response = await client.get(f"/api/v1/users/{second_db_user.id}", headers=headers)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Not authorized to view this user's profile"
