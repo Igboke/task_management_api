@@ -27,3 +27,17 @@ async def test_create_task(client: AsyncClient, authenticated_user_and_headers):
     assert created_task["user_id"] == user.id
     assert created_task["status"] == TaskStatus.PENDING.value
     assert "id" in created_task
+
+@pytest.mark.anyio
+async def test_create_task_unauthenticated(client: AsyncClient):
+    """
+    Test creating a task without authentication.
+    """
+    task_data = {
+        "title": "Unauthorized Task",
+        "description": "This Should fail",
+        "status": "pending",
+        "due_date": datetime.now(timezone.utc).isoformat(),
+    }
+    response = await client.post("/api/v1/tasks/", json=task_data)
+    assert response.status_code == 401 # Unauthorized
