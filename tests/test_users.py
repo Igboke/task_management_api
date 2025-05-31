@@ -274,3 +274,25 @@ async def test_update_user_success(client: AsyncClient, authenticated_user_and_h
     assert updated_user_data["email"] == update_data["email"]
     assert updated_user_data["is_active"] == update_data["is_active"]
     assert updated_user_data["id"] == user.id
+
+@pytest.mark.anyio
+async def test_update_user_unauthorized(client: AsyncClient, authenticated_user_and_headers, db, mocker):
+    """
+    Test attempting to update another user's profile.
+    """
+    mocker.patch("utils.send_verification_mail", return_value=None)
+    _, headers = authenticated_user_and_headers
+
+    # Create a second user
+    second_user_data = UserCreate(email="another_to_update@example.com", password="UpdatePassword")
+    second_db_user = await crud.create_user(db, second_user_data)
+    second_db_user.is_verified = True
+    await db.commit()
+    await db.refresh(second_db_user)
+
+    update_data = {"email": "malicious_update@example.com"}
+    response = await client.put(f"/api/v1/users/{second_db_user.id}", json=update_data, headers=headers)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Not authorized to update this user"
+
+
