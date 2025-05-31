@@ -127,3 +127,20 @@ async def test_read_user_tasks_no_filter(client: AsyncClient, authenticated_user
     tasks = response.json()
     assert len(tasks) == 3
     assert all(task["user_id"] == user.id for task in tasks)
+
+@pytest.mark.anyio
+async def test_read_user_tasks_with_status_filter(client: AsyncClient, authenticated_user_and_headers):
+    """
+    Test retrieving tasks filtered by status.
+    """
+    _, headers = authenticated_user_and_headers
+    # Create tasks with different statuses
+    await client.post("/api/v1/tasks/", json={"title": "Pending Task 1", "status": "pending"}, headers=headers)
+    await client.post("/api/v1/tasks/", json={"title": "Completed Task 1", "status": "completed"}, headers=headers)
+    await client.post("/api/v1/tasks/", json={"title": "Pending Task 2", "status": "pending"}, headers=headers)
+
+    response = await client.get("/api/v1/tasks/?status_=pending", headers=headers)
+    assert response.status_code == 200
+    tasks = response.json()
+    assert len(tasks) == 2
+    assert all(task["status"] == "pending" for task in tasks)
