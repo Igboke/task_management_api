@@ -1,3 +1,4 @@
+import asyncio
 from httpx import AsyncClient
 import pytest
 from datetime import datetime, timezone, timedelta
@@ -144,3 +145,26 @@ async def test_read_user_tasks_with_status_filter(client: AsyncClient, authentic
     tasks = response.json()
     assert len(tasks) == 2
     assert all(task["status"] == "pending" for task in tasks)
+
+@pytest.mark.anyio
+async def test_read_user_tasks_with_sorting(client: AsyncClient, authenticated_user_and_headers):
+    """
+    Test retrieving tasks with sorting by 'created_at' in descending order.
+    """
+    _, headers = authenticated_user_and_headers
+    
+    # Create tasks with delays to ensure different created_at timestamps
+    task1_data = {"title": "Task A", "description": "Desc A"}
+    await client.post("/api/v1/tasks/", json=task1_data, headers=headers)
+    await asyncio.sleep(0.01) # Small delay
+    task2_data = {"title": "Task B", "description": "Desc B"}
+    await client.post("/api/v1/tasks/", json=task2_data, headers=headers)
+
+    # Retrieve tasks sorted by created_at descending
+    response = await client.get("/api/v1/tasks/?sort_by=created_at&order=desc", headers=headers)
+    assert response.status_code == 200
+    tasks = response.json()
+    assert len(tasks) == 2
+    # Task B should be first due to 'desc' order and later creation
+    assert tasks[0]["title"] == "Task B"
+    assert tasks[1]["title"] == "Task A"
