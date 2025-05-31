@@ -200,3 +200,14 @@ async def test_update_task_success(client: AsyncClient, authenticated_user_and_h
     assert updated_task["description"] == update_task_data["description"]
     assert updated_task["status"] == update_task_data["status"]
     assert updated_task["updated_at"] > updated_task["created_at"] # Updated timestamp should be newer
+
+@pytest.mark.anyio
+async def test_update_task_not_found(client: AsyncClient, authenticated_user_and_headers):
+    """
+    Test updating a non-existent task.
+    """
+    _, headers = authenticated_user_and_headers
+    update_data = {"title": "Non-existent task"}
+    response = await client.put("/api/v1/tasks/99999", json=update_data, headers=headers)
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Task not found"
