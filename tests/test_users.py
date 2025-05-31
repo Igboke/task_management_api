@@ -27,4 +27,23 @@ async def test_create_user(client: AsyncClient, mocker):
 
     # Ensure email verification mail was attempted to be sent
     mock_send.assert_called_once()
+
+@pytest.mark.anyio
+async def test_create_user_email_already_exists(client: AsyncClient, mocker):
+    """
+    Test user creation with an email that already exists.
+    """
+    mocker.patch("utils.send_verification_mail", return_value=None)
     
+    user_data = {
+        "email": "existinguser@example.com",
+        "password": "Password123",
+    }
+    # Create the user first
+    response = await client.post("/api/v1/users/", json=user_data)
+    assert response.status_code == 201
+
+    # Attempt to create with the same email again
+    response = await client.post("/api/v1/users/", json=user_data)
+    assert response.status_code == 400
+    assert response.json()["detail"] == "User with this email already exists but is not verified. Please check your inbox for a verification link."
